@@ -31,7 +31,31 @@ setup হয়ে **lock** হয়ে যাবে। এরপর প্র�
 ### Linux Mint
 
 Terminal-এ kit folder থেকে একবার `bash install.sh` চালাও। এরপর Nemo/Files-এ folder right-click →
-**Open with Locker**। অ্যাপটি browser-এ নয়, আলাদা Electron desktop window-এ খুলবে।
+**Open with Locker**। প্রথমবার key দিয়ে folder lock করলে সেটি watcher-এ register হবে। এরপর locked folder-এ
+ঢুকতে গেলেই Ms Minute নিজে খুলে key চাইবে। Window বন্ধ করলে folder আবার auto-lock হবে।
+
+Linux-এ Bengali female voice শোনার জন্য একবার চালাও:
+
+```bash
+sudo apt install espeak-ng
+```
+
+Locker প্রথমে `espeak-ng`-এর Bengali female variant ব্যবহার করবে, তারপর `spd-say`, এবং সবশেষে browser
+speech voice চেষ্টা করবে।
+
+Installer `~/.xinitrc`-এ একটি চিহ্নিত Locker block যোগ করে। তাই username/password দিয়ে login করে
+`startx` চালালে desktop session শুরু হওয়ার **আগে** full-screen Ms Minute খুলে বলবে:
+
+> Hi Rayat sir, আপনি এসেছেন? আমার জন্য কী এনেছেন?
+
+প্রথমবার **Set Guard Key** দিয়ে key তৈরি করো। পরের session থেকে সঠিক key না দেওয়া পর্যন্ত Cinnamon
+desktop শুরু হবে না। Display manager দিয়ে graphical login করলে একই guard XDG autostart থেকে খুলবে।
+
+> এটি user-session guard; PAM, root/TTY access বা full-disk encryption-এর বিকল্প নয়। Machine-level
+> নিরাপত্তার জন্য Linux login password এবং disk encryption-ও ব্যবহার করো।
+
+Guard key ভুলে গেলে TTY থেকে `bash ~/.local/share/locker/uninstall.sh` চালিয়ে managed startup guard
+সরানো যাবে; এটি আগে থেকে encrypted থাকা folder decrypt করবে না।
 
 ### বিকল্প: শুধু একটা ফোল্ডারে (install ছাড়া)
 Install করতে না চাইলে পুরো kit folder-এ একবার `npm install` এবং `node node_modules/electron/install.js`
@@ -41,8 +65,8 @@ Install করতে না চাইলে পুরো kit folder-এ এক�
 
 ## ৩. Secret function কেমন হবে (গুরুত্বপূর্ণ)
 
-Secret হলো একটা JavaScript function। **এটা যা `return` করে শুধু সেটা থেকেই key তৈরি হয়** — function-এর
-নাম বা ভেতরের লজিক key-তে যায় না। তাই:
+Secret হিসেবে plain key অথবা JavaScript function—দুটিই দেওয়া যায়। Function দিলে **এটা যা `return` করে
+শুধু সেটা থেকেই key তৈরি হয়**—function-এর নাম বা ভেতরের লজিক key-তে যায় না। তাই:
 
 - return value-টা এমন দাও যা **শুধু তুমি জানো ও সহজে অনুমান করা যায় না**:
   ```js
@@ -90,6 +114,8 @@ Secret হলো একটা JavaScript function। **এটা যা `return`
 | `app-server.js` | graphical অ্যাপ (mascot + digital UI); engine-কেই চালায়, নতুন crypto না |
 | `desktop-main.js` | Windows/Linux-এ native Electron window ও app lifecycle চালায় |
 | `launcher.ps1` / `locker-app.sh` | desktop app চালু করে; window বন্ধ হলে auto-lock শেষ করে server থামায় |
+| `session-guard.sh` | `startx`/Cinnamon session-এর full-screen second guard চালায় |
+| `folder-watch.py` | Linux inotify দিয়ে locked folder খোলা ধরলে Ms Minute চালায় |
 | `Locker-App.bat` | 👈 double-click করার ফাইল (terminal ছাড়া অ্যাপ খোলে) |
 | `locker.exe` | ঐচ্ছিক CLI front-end |
 

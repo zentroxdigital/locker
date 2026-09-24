@@ -26,6 +26,7 @@ const APPDIR = __dirname;                        // where the locker tool files 
 const ENGINE = path.join(APPDIR, "locker-engine.js");
 // The folder to lock/unlock: passed as arg (right-click "Open with Locker"), else this folder.
 const HERE = process.argv[4] ? path.resolve(process.argv[4]) : APPDIR;
+const APP_MODE = process.argv[5] === "guard" ? "guard" : "folder";
 
 let remembered = null; // secret kept in RAM for THIS session only, so we can auto-lock on close
 
@@ -76,6 +77,66 @@ function readBody(req, cb) {
   req.on("end", () => { try { cb(data ? JSON.parse(data) : {}); } catch (e) { cb({}); } });
 }
 
+/** Remember Linux folders that should summon Ms Minute when the directory is opened. */
+function registerLockedFolder(folder) {
+  if (process.platform !== "linux" || APP_MODE !== "folder") return;
+  try {
+    const configDir = path.join(os.homedir(), ".config", "locker-kit");
+    const registry = path.join(configDir, "watched-folders.json");
+    fs.mkdirSync(configDir, { recursive: true });
+    let folders = [];
+    try {
+      folders = JSON.parse(fs.readFileSync(registry, "utf8"));
+      if (!Array.isArray(folders)) folders = [];
+    } catch (_) {}
+    const resolved = path.resolve(folder);
+    folders = folders.filter((item) => typeof item === "string" && fs.existsSync(item));
+    if (!folders.includes(resolved)) folders.push(resolved);
+    const temporary = registry + ".tmp-" + process.pid;
+    fs.writeFileSync(temporary, JSON.stringify(folders, null, 2), "utf8");
+    fs.renameSync(temporary, registry);
+  } catch (_) {
+    // Folder locking itself must still work if registration is unavailable.
+  }
+}
+
+/** Speak through Linux's native audio stack; argv is passed directly without a shell. */
+function speakNative(text, lang, cb) {
+  if (process.platform !== "linux") return cb(false);
+  const cleanText = String(text || "").replace(/[\r\n]+/g, " ").trim().slice(0, 500);
+  if (!cleanText) return cb(false);
+  const isBangla = String(lang || "").toLowerCase().startsWith("bn");
+  const choices = [
+    {
+      command: "espeak-ng",
+      args: ["-v", isBangla ? "bn+f3" : "en-us+f3", "-p", "68", "-s", "145", cleanText]
+    },
+    {
+      command: "spd-say",
+      args: ["-l", isBangla ? "bn" : "en", "-t", "female1", "-r", "-10", "-p", "20", "-w", cleanText]
+    }
+  ];
+
+  function attempt(index) {
+    if (index >= choices.length) return cb(false);
+    const choice = choices[index];
+    let settled = false;
+    const child = spawn(choice.command, choice.args, { windowsHide: true, stdio: "ignore" });
+    child.once("error", () => {
+      if (settled) return;
+      settled = true;
+      attempt(index + 1);
+    });
+    child.once("close", (code) => {
+      if (settled) return;
+      settled = true;
+      if (code === 0) cb(true);
+      else attempt(index + 1);
+    });
+  }
+  attempt(0);
+}
+
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://127.0.0.1");
   const p = u.pathname;
@@ -86,12 +147,18 @@ const server = http.createServer((req, res) => {
 
   if (p === "/" && req.method === "GET") {
     res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-    return res.end(PAGE(TOKEN, HERE));
+    return res.end(PAGE(TOKEN, HERE, APP_MODE, process.platform === "linux"));
   }
   if (p === "/ping") return send(res, 200, { ok: true });
 
   if (p === "/api/status" && req.method === "POST") {
     return runEngine("status", HERE, null, (r) => send(res, 200, r));
+  }
+
+  if (p === "/api/speak" && req.method === "POST") {
+    return readBody(req, (b) => {
+      speakNative(b.text, b.lang, (spoken) => send(res, 200, { ok: spoken }));
+    });
   }
 
   if ((p === "/api/setup" || p === "/api/lock" || p === "/api/unlock") && req.method === "POST") {
@@ -101,10 +168,25 @@ const server = http.createServer((req, res) => {
         return send(res, 200, { token: "ERROR", message: "Password ta likho." });
       runEngine(mode, HERE, b.secret, (r) => {
         if (r.code === 0) {
-          if (mode === "lock") remembered = null;           // locked, nothing to auto-lock
+          if (mode === "lock") {
+            remembered = null;                              // locked, nothing to auto-lock
+            registerLockedFolder(HERE);
+          }
           else remembered = String(b.secret);               // keep so we can auto-lock on close
         }
         send(res, 200, r);
+      });
+    });
+  }
+
+  if (p === "/api/guard" && req.method === "POST" && APP_MODE === "guard") {
+    return readBody(req, (b) => {
+      if (!b.secret || !String(b.secret).trim())
+        return send(res, 200, { code: 1, token: "ERROR", message: "Key দিন।" });
+      const mode = b.setup === true ? "setup" : "verify";
+      runEngine(mode, HERE, b.secret, (r) => {
+        send(res, 200, r);
+        if (r.code === 0) setTimeout(() => process.exit(0), 1000);
       });
     });
   }
@@ -128,7 +210,7 @@ server.listen(PORT, "127.0.0.1", () => {
 });
 
 // ---------------------------------------------------------------------------------------------
-function PAGE(token, self) {
+function PAGE(token, self, appMode, nativeTts) {
   return `<!DOCTYPE html>
 <html lang="bn">
 <head>
@@ -148,6 +230,7 @@ function PAGE(token, self) {
     color:var(--ink); font-family:"Segoe UI",system-ui,Arial,sans-serif;
     display:flex; align-items:flex-start; justify-content:center; padding:18px;
   }
+  body.guard{align-items:center}
   .app{width:100%; max-width:520px}
   .title{display:flex; align-items:center; gap:10px; margin:2px 2px 14px}
   .title b{font-size:20px; letter-spacing:.3px}
@@ -246,7 +329,7 @@ function PAGE(token, self) {
   .out.ok{border-color:#1f5c3a} .out.bad{border-color:#5c2530} .out.warn{border-color:#5c471f}
 </style>
 </head>
-<body>
+<body class="${appMode === "guard" ? "guard" : ""}">
 <div class="app">
   <div class="stage">
     <svg class="mascot" id="mascot" viewBox="0 0 120 132" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -294,13 +377,15 @@ function PAGE(token, self) {
     </svg>
   </div>
 
+  <div class="bubble" id="bubble">Hi Rayat sir, আপনি এসেছেন? আমার জন্য কী এনেছেন?</div>
+
   <div class="statusbar">
     <span class="pill none" id="pill"><span class="d"></span><span id="pilltext">…</span></span>
     <span class="mute" id="mute" title="Voice on/off">🔊</span>
   </div>
 
   <div class="card">
-    <textarea id="secret" spellcheck="false" autofocus></textarea>
+    <textarea id="secret" spellcheck="false" autofocus placeholder="আপনার secret function বা key দিন"></textarea>
     <button class="go" id="go" disabled>…</button>
     <div class="out" id="out"></div>
   </div>
@@ -309,6 +394,8 @@ function PAGE(token, self) {
 <script>
 const T = ${JSON.stringify(token)};
 const SELF = ${JSON.stringify(self)};
+const APP_MODE = ${JSON.stringify(appMode)};
+const NATIVE_TTS = ${JSON.stringify(nativeTts)};
 const $ = (id)=>document.getElementById(id);
 const bubble=$("bubble"), mascot=$("mascot"), out=$("out"), go=$("go");
 let status = null;
@@ -317,20 +404,24 @@ function say(html){ if(bubble) bubble.innerHTML = html; }
 function eating(on){ mascot.classList.toggle("eating", !!on); }
 function setOut(msg, kind){ out.textContent = msg||""; out.className = "out show" + (kind?(" "+kind):""); if(!msg) out.className="out"; }
 
-// ---- female voice (browser built-in speech synthesis) ----
+// ---- female voice: native Linux TTS first, browser speech synthesis as fallback ----
 let voiceOn = true;
 let VOICES = [];
 function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES=[]; } }
 loadVoices();
 if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
 function femaleVoice(langPrefix){
-  if(langPrefix){ const m = VOICES.find(v=>(v.lang||"").toLowerCase().startsWith(langPrefix)); if(m) return m; }
   const pref = ["zira","aria","jenny","michelle","hazel","susan","samantha","eva","female"];
+  if(langPrefix){
+    const matching = VOICES.filter(v=>(v.lang||"").toLowerCase().startsWith(langPrefix));
+    for(const p of pref){ const v = matching.find(v=>(v.name||"").toLowerCase().includes(p)); if(v) return v; }
+    if(matching[0]) return matching[0];
+  }
   for(const p of pref){ const v = VOICES.find(v=>(v.name||"").toLowerCase().includes(p)); if(v) return v; }
   return VOICES.find(v=>/^en/i.test(v.lang||"")) || VOICES[0] || null;
 }
-function speak(text, opts){
-  if(!voiceOn || !window.speechSynthesis) return;
+function browserSpeak(text, opts){
+  if(!window.speechSynthesis) return;
   opts = opts || {};
   try{
     window.speechSynthesis.cancel();
@@ -343,6 +434,19 @@ function speak(text, opts){
     u.onend   = ()=>mascot.classList.remove("talking");
     window.speechSynthesis.speak(u);
   }catch(e){}
+}
+function speak(text, opts){
+  if(!voiceOn) return;
+  opts = opts || {};
+  if(NATIVE_TTS){
+    mascot.classList.add("talking");
+    const inferredLang = /[\u0980-\u09ff]/.test(text) ? "bn-BD" : "en-US";
+    api("/api/speak", {text:text, lang:opts.lang||inferredLang})
+      .then(r=>{ mascot.classList.remove("talking"); if(!r.ok) browserSpeak(text, opts); })
+      .catch(()=>{ mascot.classList.remove("talking"); browserSpeak(text, opts); });
+    return;
+  }
+  browserSpeak(text, opts);
 }
 function wave(){ mascot.classList.remove("wave"); void mascot.offsetWidth; mascot.classList.add("wave"); }
 function hi(){ mascot.classList.remove("hi"); void mascot.offsetWidth; mascot.classList.add("hi"); setTimeout(()=>mascot.classList.remove("hi"), 1000); }
@@ -372,6 +476,11 @@ function applyPill(tk){
 
 function updateButton(){
   go.disabled=false;
+  if(APP_MODE==="guard"){
+    go.textContent = status==="NOT_CONFIGURED" ? "Set Guard Key" : "Enter";
+    go.className = status==="NOT_CONFIGURED" ? "go set" : "go unlock";
+    return;
+  }
   if(status==="NOT_CONFIGURED"){ go.textContent="Set Password"; go.className="go set"; }
   else if(status==="LOCKED_STATUS"){ go.textContent="🔓 Unlock"; go.className="go unlock"; }
   else if(status==="UNLOCKED_STATUS"){ go.textContent="🔒 Lock"; go.className="go lock"; }
@@ -398,12 +507,31 @@ async function run(mode, secret, verb){
   return good;
 }
 
+async function runGuard(secret){
+  go.disabled=true; eating(true); wave(); setOut("");
+  say("Key যাচাই করছি…");
+  const r = await api("/api/guard", { secret, setup: status==="NOT_CONFIGURED" });
+  eating(false);
+  const good = r.code===0;
+  setOut(r.message || "", good?"ok":"bad");
+  if(good){
+    say("স্বাগতম Rayat sir — access granted! 🔓");
+    speak("স্বাগতম রায়াত স্যার", {lang:"bn-BD"});
+  } else {
+    say("Key মেলেনি। আবার চেষ্টা করুন।");
+    speak("চাবি মেলেনি। আবার চেষ্টা করুন।", {lang:"bn-BD"});
+    go.disabled=false;
+  }
+  return good;
+}
+
 let greeted = false;
 function greet(){
-  if(greeted && voiceOn===false) return;
+  if(greeted) return;
   hi(); wave();
+  say("Hi Rayat sir, আপনি এসেছেন? আমার জন্য কী এনেছেন?");
   var hasBn = VOICES.some(function(v){ return (v.lang||"").toLowerCase().indexOf("bn")===0; });
-  if(hasBn) speak("হাই রায়াত স্যার, এসেছেন? আপনি আমার জন্য কী এনেছেন?", {lang:"bn-BD"});
+  if(NATIVE_TTS || hasBn) speak("হাই রায়াত স্যার, আপনি এসেছেন? আমার জন্য কী এনেছেন?", {lang:"bn-BD"});
   else speak("Hi Rayat sir, esechen? apni amar jonne ki enechen?");
   greeted = true;
 }
@@ -412,6 +540,10 @@ go.onclick = async ()=>{
   const secret = $("secret").value;
   if(!secret.trim()){ setOut("Password ta likho.","warn"); return; }
   $("secret").value = "";          // key dewar sathe sathe box theke muche jabe
+  if(APP_MODE==="guard"){
+    await runGuard(secret);
+    return;
+  }
   if(status==="NOT_CONFIGURED"){
     if(await run("setup", secret, "Setup")){ await refresh(); if(status==="UNLOCKED_STATUS"){ await run("lock", secret, "Lock"); } }
   } else if(status==="LOCKED_STATUS"){

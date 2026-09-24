@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, dialog, shell } = require("electron");
+const { app, BrowserWindow, dialog, screen, shell } = require("electron");
 const { spawn } = require("child_process");
 const crypto = require("crypto");
 const http = require("http");
@@ -16,6 +16,12 @@ let baseUrl = null;
 let token = null;
 let shuttingDown = false;
 let allowWindowClose = false;
+
+function appModeFromArguments() {
+  return process.argv.includes("--locker-mode=guard") ? "guard" : "folder";
+}
+
+const APP_MODE = appModeFromArguments();
 
 function targetFromArguments() {
   const prefix = "--locker-target=";
@@ -71,7 +77,7 @@ async function startServer(target) {
   token = crypto.randomBytes(16).toString("hex");
   baseUrl = `http://127.0.0.1:${port}`;
 
-  serverProcess = spawn(process.execPath, [SERVER_FILE, String(port), token, target], {
+  serverProcess = spawn(process.execPath, [SERVER_FILE, String(port), token, target, APP_MODE], {
     cwd: APP_DIR,
     env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
     windowsHide: true,
@@ -81,12 +87,19 @@ async function startServer(target) {
   let serverError = "";
   serverProcess.stderr.on("data", (chunk) => { serverError += String(chunk); });
   serverProcess.once("error", (error) => { serverError += error.message; });
-  serverProcess.once("exit", () => {
+  serverProcess.once("exit", (code) => {
     serverProcess = null;
+    if (!shuttingDown && APP_MODE === "guard" && code === 0) {
+      allowWindowClose = true;
+      if (mainWindow && !mainWindow.isDestroyed()) mainWindow.destroy();
+      app.quit();
+      return;
+    }
     if (!shuttingDown && mainWindow && !mainWindow.isDestroyed()) {
       dialog.showErrorBox("Locker", serverError.trim() || "Locker server unexpectedly stopped.");
       allowWindowClose = true;
-      mainWindow.close();
+      mainWindow.destroy();
+      app.exit(1);
     }
   });
 
@@ -122,16 +135,26 @@ async function shutdownAndQuit() {
 async function createWindow() {
   const target = targetFromArguments();
   await startServer(target);
+  const guardBounds = APP_MODE === "guard" ? screen.getPrimaryDisplay().bounds : {};
 
   mainWindow = new BrowserWindow({
-    width: 500,
-    height: 700,
+    x: APP_MODE === "guard" ? guardBounds.x : undefined,
+    y: APP_MODE === "guard" ? guardBounds.y : undefined,
+    width: APP_MODE === "guard" ? guardBounds.width : 500,
+    height: APP_MODE === "guard" ? guardBounds.height : 700,
     minWidth: 430,
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
     backgroundColor: "#0e1116",
     title: "Locker",
+    frame: APP_MODE !== "guard",
+    fullscreen: APP_MODE === "guard",
+    kiosk: APP_MODE === "guard",
+    alwaysOnTop: APP_MODE === "guard",
+    closable: APP_MODE !== "guard",
+    minimizable: APP_MODE !== "guard",
+    skipTaskbar: APP_MODE === "guard",
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
@@ -143,6 +166,15 @@ async function createWindow() {
     if (url.startsWith("https://")) shell.openExternal(url);
     return { action: "deny" };
   });
+  if (APP_MODE === "guard") {
+    mainWindow.setAlwaysOnTop(true, "screen-saver");
+    mainWindow.webContents.on("before-input-event", (event, input) => {
+      const key = String(input.key || "").toLowerCase();
+      if ((input.control && (key === "w" || key === "r")) || key === "f11" || key === "f12") {
+        event.preventDefault();
+      }
+    });
+  }
   mainWindow.webContents.on("will-navigate", (event, url) => {
     if (!url.startsWith(baseUrl + "/")) event.preventDefault();
   });
@@ -160,7 +192,7 @@ app.setName("Locker Kit");
 app.whenReady().then(createWindow).catch((error) => {
   dialog.showErrorBox("Locker could not start", error.message || String(error));
   if (serverProcess) serverProcess.kill();
-  app.quit();
+  app.exit(1);
 });
 
 app.on("before-quit", (event) => {

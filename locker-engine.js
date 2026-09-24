@@ -14,7 +14,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 
-const SKIP_DIR_NAMES = new Set([".locker"]);
+const SKIP_DIR_NAMES = new Set([".locker", "node_modules", "guard-state"]);
 // locker's own files, plus the "guard" launcher (guard.ps1 / Open-Project.bat) — locking the
 // door itself would tar it shut, so these are never encrypted.
 const SKIP_FILE_NAMES = new Set([
@@ -24,8 +24,16 @@ const SKIP_FILE_NAMES = new Set([
   "guard.ps1",
   "Open-Project.bat",
   "app-server.js",
+  "desktop-main.js",
+  "folder-watch.py",
+  "session-guard.sh",
+  "locker-app.sh",
+  "install.sh",
+  "uninstall.sh",
   "launcher.ps1",
   "Locker-App.bat",
+  "package.json",
+  "package-lock.json",
 ]);
 const LOCKED_SUFFIX = ".locked";
 const VERIFY_LABEL = "locker-v1-verify";
@@ -271,6 +279,19 @@ function cmdUnlock(folder, secretFilePath) {
   );
 }
 
+/** Check a secret without decrypting or changing any file. Used by the login/session guard. */
+function cmdVerify(folder, secretFilePath) {
+  const config = loadConfig(folder);
+  if (!config) fail("NOT_CONFIGURED", "Guard key এখনো সেট করা হয়নি।");
+
+  const secretString = readSecretString(secretFilePath);
+  if (!secretMatches(config, secretString)) {
+    fail("DENIED", "❌ Access denied. Key মেলেনি।");
+  }
+
+  ok("OK", "✅ Access granted.");
+}
+
 function cmdStatus(folder) {
   const config = loadConfig(folder);
   if (!config) ok("NOT_CONFIGURED", "এই ফোল্ডারে কোনো locker সেট করা নেই। ('locker setup' চালাও)");
@@ -299,6 +320,8 @@ function main() {
       return cmdLock(folder, secretFilePath);
     case "unlock":
       return cmdUnlock(folder, secretFilePath);
+    case "verify":
+      return cmdVerify(folder, secretFilePath);
     case "status":
       return cmdStatus(folder);
     default:
