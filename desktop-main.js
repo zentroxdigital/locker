@@ -150,8 +150,14 @@ async function createWindow() {
     backgroundColor: "#00000000",
     transparent: true,
     hasShadow: false,
-    title: "Locker",
+    title: "",
     frame: APP_MODE !== "guard",
+    titleBarStyle: APP_MODE === "guard" ? "default" : "hidden",
+    titleBarOverlay: APP_MODE === "guard" ? false : {
+      color: "#00000000",
+      symbolColor: "#e8edf4",
+      height: 42
+    },
     fullscreen: APP_MODE === "guard",
     kiosk: APP_MODE === "guard",
     alwaysOnTop: APP_MODE === "guard",

@@ -303,16 +303,19 @@ function PAGE(token, self, appMode, nativeTts) {
     display:flex; align-items:flex-start; justify-content:center; padding:18px;
   }
   body.guard{align-items:center}
+  body:not(.guard){padding-top:48px}
   .app{width:100%; max-width:560px}
+  .window-drag{position:fixed;z-index:20;top:0;left:0;right:150px;height:42px;-webkit-app-region:drag}
+  body.guard .window-drag{display:none}
   .title{display:flex; align-items:center; gap:10px; margin:2px 2px 14px}
   .title b{font-size:20px; letter-spacing:.3px}
   .title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
 
   .stage{display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:16px}
-  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto;filter:drop-shadow(0 18px 34px rgba(255,120,40,.42))}
+  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto}
   /* gentle idle float */
   #body{transform-origin:60px 70px; animation:float 3.2s ease-in-out infinite}
-  @keyframes float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
   /* playful "hi" bounce + tilt (dhong) — overrides float briefly */
   .hi #body{animation:hi .95s ease}
   @keyframes hi{
@@ -402,6 +405,7 @@ function PAGE(token, self, appMode, nativeTts) {
 </style>
 </head>
 <body class="${appMode === "guard" ? "guard" : ""}">
+<div class="window-drag" aria-hidden="true"></div>
 <div class="app">
   <div class="stage">
     <svg class="mascot" id="mascot" viewBox="0 0 120 132" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -434,17 +438,21 @@ function PAGE(token, self, appMode, nativeTts) {
         <g>
           <ellipse cx="49" cy="44" rx="8" ry="10" fill="#fff" stroke="#3a2a1a" stroke-width="1.5"/>
           <ellipse cx="71" cy="44" rx="8" ry="10" fill="#fff" stroke="#3a2a1a" stroke-width="1.5"/>
-          <circle cx="51" cy="46" r="4.2" fill="#2a1a0c"/><circle cx="73" cy="46" r="4.2" fill="#2a1a0c"/>
-          <circle cx="52.4" cy="44.4" r="1.3" fill="#fff"/><circle cx="74.4" cy="44.4" r="1.3" fill="#fff"/>
+          <!-- centered pupils: she looks directly at the user -->
+          <circle cx="49" cy="44" r="4.6" fill="#2a1a0c"/><circle cx="71" cy="44" r="4.6" fill="#2a1a0c"/>
+          <circle cx="47.5" cy="42.3" r="1.35" fill="#fff"/><circle cx="69.5" cy="42.3" r="1.35" fill="#fff"/>
           <path d="M41 36 l-4 -3 M44 33 l-2 -4" stroke="#3a2a1a" stroke-width="1.6" stroke-linecap="round"/>
           <path d="M79 36 l4 -3 M76 33 l2 -4" stroke="#3a2a1a" stroke-width="1.6" stroke-linecap="round"/>
           <!-- eyelids for blink -->
           <ellipse class="lid" cx="49" cy="44" rx="8.4" ry="10.4" fill="url(#face)"/>
           <ellipse class="lid" cx="71" cy="44" rx="8.4" ry="10.4" fill="url(#face)"/>
         </g>
+        <!-- warm blush for a softer, romantic expression -->
+        <ellipse cx="41" cy="58" rx="6" ry="2.7" fill="#e94f72" opacity=".38"/>
+        <ellipse cx="79" cy="58" rx="6" ry="2.7" fill="#e94f72" opacity=".38"/>
         <!-- nose + mouth -->
         <circle cx="60" cy="56" r="1.8" fill="#3a2a1a"/>
-        <path id="mouth" d="M50 64 q10 12 20 0 q-10 4 -20 0 z" fill="#5a2410"/>
+        <path id="mouth" d="M50 65 Q60 74 70 65 Q60 70 50 65 Z" fill="#7a2537"/>
       </g>
     </svg>
   </div>
