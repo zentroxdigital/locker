@@ -1,0 +1,16 @@
+# Never commit per-folder locker state or secrets
+.locker/
+*.locked
+
+# Secret / temp key files
+*secret*.js
+locker_secret_*.js
+guard_secret_*.js
+
+# Node / build
+node_modules/
+
+# OS junk
+Thumbs.db
+.DS_Store
+desktop.ini
