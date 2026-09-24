@@ -311,9 +311,15 @@ function PAGE(token, self, appMode, nativeTts) {
   .title b{font-size:20px; letter-spacing:.3px}
   .title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
 
-  .stage{display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:16px}
-  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto;
-    filter:drop-shadow(0 0 12px rgba(255,138,43,.68)) drop-shadow(0 0 28px rgba(239,111,22,.34))}
+  .stage{position:relative; display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:0; z-index:2}
+  /* warm pulsing halo behind her (glow) */
+  .stage:before{content:""; position:absolute; top:8%; left:50%; width:60%; height:60%;
+    transform:translateX(-50%); border-radius:50%; z-index:0; pointer-events:none;
+    background:radial-gradient(circle, rgba(255,165,70,.62), rgba(255,110,20,.24) 45%, rgba(255,90,10,0) 70%);
+    filter:blur(12px); animation:glowpulse 2.8s ease-in-out infinite}
+  @keyframes glowpulse{0%,100%{opacity:.72; transform:translateX(-50%) scale(1)}50%{opacity:1; transform:translateX(-50%) scale(1.15)}}
+  .mascot{position:relative; z-index:1; width:300px;height:330px;max-width:66vw;flex:0 0 auto;
+    filter:drop-shadow(0 0 10px rgba(255,150,55,.72)) drop-shadow(0 0 26px rgba(239,111,22,.42))}
   /* gentle idle float */
   #body{transform-origin:60px 70px; animation:float 3.2s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
@@ -323,32 +329,39 @@ function PAGE(token, self, appMode, nativeTts) {
     0%{transform:translateY(0) rotate(0)} 18%{transform:translateY(-14px) rotate(-8deg)}
     40%{transform:translateY(0) rotate(7deg)} 60%{transform:translateY(-8px) rotate(-5deg)}
     80%{transform:translateY(0) rotate(3deg)} 100%{transform:translateY(0) rotate(0)}}
-  /* blinking: eyelids drop briefly */
-  .lid{transform-origin:center top; transform:scaleY(0); animation:blink 5s infinite}
-  @keyframes blink{0%,92%,100%{transform:scaleY(0)}94%{transform:scaleY(1)}96%{transform:scaleY(0)}}
+  /* blinking: eyelids drop briefly (fill-box so it scales over the eye, not the whole SVG) */
+  .lid{transform-box:fill-box; transform-origin:center top; transform:scaleY(0); animation:blink 3.4s infinite}
+  @keyframes blink{0%,88%,100%{transform:scaleY(0)} 92%,96%{transform:scaleY(1)} 99%{transform:scaleY(0)}}
   /* clock hands slowly turning = "alive" */
   #hHour{transform-origin:60px 52px; animation:spin 24s linear infinite}
   #hMin{transform-origin:60px 52px; animation:spin 6s linear infinite}
   @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
-  /* talking: mouth opens/closes while she speaks */
-  #mouth{transform-origin:60px 70px; transform:scaleY(1)}
+  /* talking: JS drives the mouth from the audio amplitude (lip-sync); .talking is the fallback */
+  #mouth{transform-box:fill-box; transform-origin:center top; transform:scaleY(1)}
   .talking #mouth{animation:talk .16s ease-in-out infinite}
-  @keyframes talk{0%,100%{transform:scaleY(.7)}50%{transform:scaleY(1.5)}}
+  @keyframes talk{0%,100%{transform:scaleY(.6)}50%{transform:scaleY(1.7)}}
+  /* dangling legs swing gently while she sits on the input box */
+  #legs{transform-box:fill-box; transform-origin:center top; animation:swing 2.4s ease-in-out infinite}
+  @keyframes swing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
   /* one hand waves when greeting/eating */
   #armR{transform-origin:96px 66px}
   .wave #armR{animation:wave .5s ease-in-out 4}
   @keyframes wave{0%,100%{transform:rotate(0)}50%{transform:rotate(-22deg)}}
   .eating #mouth{animation:talk .22s ease-in-out infinite}
 
-  .bubble{position:relative; background:var(--card2); border:1px solid var(--line);
-    border-radius:14px; padding:12px 16px; color:var(--ink); font-size:14px; line-height:1.45;
-    width:100%; text-align:center;}
-  .bubble:after{content:"";position:absolute;top:-8px;left:50%;transform:translateX(-50%);
-    border:8px solid transparent;border-bottom-color:var(--card2)}
+  .bubble{position:relative; background:rgba(31,36,45,.62); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.10); border-radius:14px; padding:12px 16px; color:var(--ink); font-size:14px; line-height:1.45;
+    width:100%; text-align:center; margin-bottom:2px;}
+  /* speech tail points down toward her */
+  .bubble:after{content:"";position:absolute;bottom:-8px;left:50%;transform:translateX(-50%);
+    border:8px solid transparent;border-top-color:rgba(31,36,45,.62)}
   .bubble small{color:var(--muted)}
   .mute{margin-left:8px; cursor:pointer; user-select:none; opacity:.8}
 
-  .card{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:12px}
+  .card{background:rgba(20,25,33,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+    border:1px solid rgba(255,255,255,.09); border-radius:16px; padding:16px; margin-bottom:12px}
+  /* input card tucks under her so she looks seated on it */
+  .inputcard{position:relative; z-index:1; margin-top:-30px; padding-top:24px}
   .folderrow{display:flex; align-items:center; justify-content:space-between; gap:10px}
   .folder{font-size:12.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .folder b{color:var(--ink)}
@@ -360,8 +373,8 @@ function PAGE(token, self, appMode, nativeTts) {
   .pill.none{color:var(--muted)}
   .pill.bad{color:var(--bad)} .pill.bad .d{background:var(--bad)}
 
-  textarea{width:100%; min-height:120px; resize:vertical; background:#0c0f14; color:#d8e6ff;
-    border:1px solid var(--line); border-radius:10px; padding:12px; font-family:Consolas,"Courier New",monospace; font-size:13px}
+  textarea{width:100%; min-height:110px; resize:vertical; background:rgba(6,9,14,.62); color:#d8e6ff;
+    border:1px solid rgba(255,255,255,.10); border-radius:10px; padding:12px; font-family:Consolas,"Courier New",monospace; font-size:13px}
   /* modern "digital / computer" button */
   .go{
     --glow:#5b8cff;
@@ -408,6 +421,8 @@ function PAGE(token, self, appMode, nativeTts) {
 <body class="${appMode === "guard" ? "guard" : ""}">
 <div class="window-drag" aria-hidden="true"></div>
 <div class="app">
+  <div class="bubble" id="bubble">Hi Rayat sir, আপনি এসেছেন? আমার জন্য কী এনেছেন?</div>
+
   <div class="stage">
     <svg class="mascot" id="mascot" viewBox="0 0 120 132" fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -416,10 +431,12 @@ function PAGE(token, self, appMode, nativeTts) {
         </radialGradient>
       </defs>
       <g id="body">
-        <!-- legs + shoes -->
+        <!-- legs + shoes (grouped so they can swing while she sits on the input box) -->
+        <g id="legs">
         <line x1="52" y1="90" x2="50" y2="112" stroke="#3a2a1a" stroke-width="4" stroke-linecap="round"/>
         <line x1="68" y1="90" x2="70" y2="112" stroke="#3a2a1a" stroke-width="4" stroke-linecap="round"/>
         <ellipse cx="47" cy="114" rx="9" ry="5" fill="#fff"/><ellipse cx="73" cy="114" rx="9" ry="5" fill="#fff"/>
+        </g>
         <!-- arms + gloves -->
         <path id="armL" d="M28 66 q-12 4 -16 14" stroke="#3a2a1a" stroke-width="4" fill="none" stroke-linecap="round"/>
         <circle cx="11" cy="82" r="6" fill="#fff" stroke="#3a2a1a" stroke-width="1.5"/>
@@ -455,17 +472,15 @@ function PAGE(token, self, appMode, nativeTts) {
     </svg>
   </div>
 
-  <div class="bubble" id="bubble">Hi Rayat sir, আপনি এসেছেন? আমার জন্য কী এনেছেন?</div>
+  <div class="card inputcard">
+    <textarea id="secret" spellcheck="false" autofocus></textarea>
+    <button class="go" id="go" disabled>…</button>
+    <div class="out" id="out"></div>
+  </div>
 
   <div class="statusbar">
     <span class="pill none" id="pill"><span class="d"></span><span id="pilltext">…</span></span>
     <span class="mute" id="mute" title="Voice on/off">🔊</span>
-  </div>
-
-  <div class="card">
-    <textarea id="secret" spellcheck="false" autofocus placeholder="আপনার secret function বা key দিন"></textarea>
-    <button class="go" id="go" disabled>…</button>
-    <div class="out" id="out"></div>
   </div>
 </div>
 
@@ -488,6 +503,12 @@ let VOICES = [];
 let currentAudio = null;
 let currentAudioUrl = null;
 let speechSequence = 0;
+let lipRaf = 0;
+let audioCtx = null;
+function ensureCtx(){ if(!audioCtx){ try{ audioCtx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){ audioCtx=null; } } return audioCtx; }
+function setMouthOpen(v){ const m=document.getElementById("mouth"); if(m) m.style.transform="scaleY("+(0.4+Math.max(0,Math.min(1,v))*1.8).toFixed(2)+")"; }
+function resetMouth(){ const m=document.getElementById("mouth"); if(m) m.style.transform=""; }
+function stopLip(){ if(lipRaf){ cancelAnimationFrame(lipRaf); lipRaf=0; } resetMouth(); }
 function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES=[]; } }
 loadVoices();
 if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -517,6 +538,7 @@ function browserSpeak(text, opts){
   }catch(e){}
 }
 function stopClientAudio(){
+  stopLip();
   if(currentAudio){ try{ currentAudio.pause(); currentAudio.currentTime=0; }catch(e){} currentAudio=null; }
   if(currentAudioUrl){ try{ URL.revokeObjectURL(currentAudioUrl); }catch(e){} currentAudioUrl=null; }
 }
@@ -531,10 +553,31 @@ async function playNeuralVoice(text, lang, sequence){
   currentAudioUrl = URL.createObjectURL(blob);
   currentAudio = new Audio(currentAudioUrl);
   currentAudio.volume = 1;
+  // real-time lip-sync: drive the mouth opening from the audio amplitude
+  let lipOn = false;
+  const ctx = ensureCtx();
+  if(ctx){
+    try{
+      if(ctx.state==="suspended"){ try{ ctx.resume(); }catch(e){} }
+      const srcNode = ctx.createMediaElementSource(currentAudio);
+      const analyser = ctx.createAnalyser(); analyser.fftSize = 256;
+      srcNode.connect(analyser); analyser.connect(ctx.destination);
+      const data = new Uint8Array(analyser.fftSize);
+      const tick=()=>{
+        if(!currentAudio){ stopLip(); return; }
+        analyser.getByteTimeDomainData(data);
+        let sum=0; for(let i=0;i<data.length;i++){ const x=(data[i]-128)/128; sum+=x*x; }
+        setMouthOpen(Math.sqrt(sum/data.length)*3.4);
+        lipRaf = requestAnimationFrame(tick);
+      };
+      lipOn = true; tick();
+    }catch(e){ lipOn = false; }
+  }
+  if(!lipOn) mascot.classList.add("talking");   // fallback: fixed mouth animation
   await currentAudio.play();
   return new Promise((resolve,reject)=>{
-    currentAudio.onended=()=>{ stopClientAudio(); resolve(true); };
-    currentAudio.onerror=()=>{ stopClientAudio(); reject(new Error("audio playback failed")); };
+    currentAudio.onended=()=>{ mascot.classList.remove("talking"); stopClientAudio(); resolve(true); };
+    currentAudio.onerror=()=>{ mascot.classList.remove("talking"); stopClientAudio(); reject(new Error("audio playback failed")); };
   });
 }
 function speak(text, opts){
@@ -544,18 +587,20 @@ function speak(text, opts){
   stopClientAudio();
   if(window.speechSynthesis) window.speechSynthesis.cancel();
   if(NATIVE_TTS){
-    mascot.classList.add("talking");
     const inferredLang = /[\u0980-\u09ff]/.test(text) ? "bn-BD" : "en-US";
     const lang = opts.lang||inferredLang;
     playNeuralVoice(text, lang, sequence)
-      .then(()=>{ if(sequence===speechSequence) mascot.classList.remove("talking"); })
-      .catch(()=>api("/api/speak", {text:text, lang:lang})
-        .then(r=>{
-          if(sequence!==speechSequence) return;
-          mascot.classList.remove("talking");
-          if(!r.ok) browserSpeak(text, opts);
-        })
-        .catch(()=>{ if(sequence===speechSequence){ mascot.classList.remove("talking"); browserSpeak(text, opts); } }));
+      .then(()=>{ if(sequence===speechSequence){ mascot.classList.remove("talking"); stopLip(); } })
+      .catch(()=>{
+        mascot.classList.add("talking");   // native spd-say fallback (no audio element to analyse)
+        return api("/api/speak", {text:text, lang:lang})
+          .then(r=>{
+            if(sequence!==speechSequence) return;
+            mascot.classList.remove("talking");
+            if(!r.ok) browserSpeak(text, opts);
+          })
+          .catch(()=>{ if(sequence===speechSequence){ mascot.classList.remove("talking"); browserSpeak(text, opts); } });
+      });
     return;
   }
   browserSpeak(text, opts);
