@@ -340,9 +340,7 @@ function PAGE(token, self, appMode, nativeTts) {
   #mouth{transform-box:fill-box; transform-origin:center top; transform:scaleY(1)}
   .talking #mouth{animation:talk .16s ease-in-out infinite}
   @keyframes talk{0%,100%{transform:scaleY(.6)}50%{transform:scaleY(1.7)}}
-  /* dangling legs swing gently while she sits on the input box */
-  #legs{transform-box:fill-box; transform-origin:center top; animation:swing 2.4s ease-in-out infinite}
-  @keyframes swing{0%,100%{transform:rotate(-7deg)}50%{transform:rotate(7deg)}}
+  /* she stands on the input box (legs static, no swing) */
   /* one hand waves when greeting/eating */
   #armR{transform-origin:96px 66px}
   .wave #armR{animation:wave .5s ease-in-out 4}
@@ -360,8 +358,8 @@ function PAGE(token, self, appMode, nativeTts) {
 
   .card{background:rgba(20,25,33,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     border:1px solid rgba(255,255,255,.09); border-radius:16px; padding:16px; margin-bottom:12px}
-  /* input card tucks under her so she looks seated on it */
-  .inputcard{position:relative; z-index:1; margin-top:-30px; padding-top:24px}
+  /* input card tucks under her feet so she looks like she is standing on it */
+  .inputcard{position:relative; z-index:1; margin-top:-24px; padding-top:22px}
   .folderrow{display:flex; align-items:center; justify-content:space-between; gap:10px}
   .folder{font-size:12.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
   .folder b{color:var(--ink)}
