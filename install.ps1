@@ -15,12 +15,33 @@ if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
     Info("Node.js install kora nei. Age https://nodejs.org theke LTS install koro, tarpor abar Install.bat cholao.")
     exit 1
 }
+if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
+    Info("npm install kora nei. Node.js LTS abar install koro, tarpor Install.bat cholao.")
+    exit 1
+}
+& node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)"
+if ($LASTEXITCODE -ne 0) {
+    Info("Locker desktop app-er jonno Node.js 22.12 ba notun version lagbe. Node.js LTS update kore Install.bat abar cholao.")
+    exit 1
+}
 
 # 1) copy the tool files to a stable location
 New-Item -ItemType Directory -Force $installDir | Out-Null
-foreach ($f in @("locker-engine.js","app-server.js","launcher.ps1","locker.exe")) {
+foreach ($f in @("locker-engine.js","app-server.js","desktop-main.js","package.json","package-lock.json","launcher.ps1","locker.exe")) {
     $s = Join-Path $srcDir $f
     if (Test-Path $s) { Copy-Item $s $installDir -Force }
+}
+
+# Install the desktop runtime in the stable per-user location.
+& npm.cmd install --omit=dev --no-audit --no-fund --prefix $installDir
+if ($LASTEXITCODE -ne 0) {
+    Info("Locker desktop dependency install hoyni. Internet connection check kore Install.bat abar cholao.")
+    exit 1
+}
+& node (Join-Path $installDir "node_modules\electron\install.js")
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path (Join-Path $installDir "node_modules\electron\dist"))) {
+    Info("Electron desktop runtime download hoyni. Internet connection check kore Install.bat abar cholao.")
+    exit 1
 }
 
 $launcher = Join-Path $installDir "launcher.ps1"

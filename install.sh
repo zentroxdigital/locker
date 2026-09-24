@@ -13,11 +13,24 @@ if ! command -v node >/dev/null 2>&1; then
   echo "Node.js install kora nei. Age cholao:  sudo apt install nodejs"
   exit 1
 fi
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm install kora nei. Node.js/npm install kore abar install.sh cholao."
+  exit 1
+fi
+if ! node -e "const [a,b]=process.versions.node.split('.').map(Number); process.exit(a>22||(a===22&&b>=12)?0:1)"; then
+  echo "Locker desktop app-er jonno Node.js 22.12 ba notun version lagbe. Node.js LTS update koro."
+  exit 1
+fi
 
 echo "-> Copying files to $DEST"
 mkdir -p "$DEST"
-cp "$SRC/locker-engine.js" "$SRC/app-server.js" "$SRC/locker-app.sh" "$SRC/locker" "$DEST/"
+cp "$SRC/locker-engine.js" "$SRC/app-server.js" "$SRC/desktop-main.js" "$SRC/package.json" "$SRC/package-lock.json" "$SRC/locker-app.sh" "$SRC/locker" "$DEST/"
 chmod +x "$DEST/locker-app.sh" "$DEST/locker"
+
+echo "-> Installing Electron desktop runtime"
+npm install --omit=dev --no-audit --no-fund --prefix "$DEST"
+node "$DEST/node_modules/electron/install.js"
+[ -d "$DEST/node_modules/electron/dist" ] || { echo "Electron desktop runtime download hoyni."; exit 1; }
 
 echo "-> Installing 'locker' CLI to ~/.local/bin"
 mkdir -p "$HOME/.local/bin"

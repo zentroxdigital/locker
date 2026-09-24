@@ -1,16 +1,16 @@
 # Locker Kit — সেটআপ গাইড
 
 যেকোনো প্রজেক্ট ফোল্ডারকে **AES-256-GCM** দিয়ে সত্যিকারভাবে এনক্রিপ্ট করে তালা মেরে দেয়, একটা
-graphical অ্যাপ থেকে। কোনো install নেই, admin লাগে না। ফোল্ডার **default-এ locked** থাকে; কাজ করার
+graphical desktop অ্যাপ থেকে। system-wide install বা admin লাগে না। ফোল্ডার **default-এ locked** থাকে; কাজ করার
 সময় অ্যাপ খুলে unlock করো, window বন্ধ করলেই **নিজে থেকে আবার lock**।
 
 ---
 
 ## ১. যা লাগবে (একবারের প্রস্তুতি)
 
-- **Node.js** ইনস্টল থাকতে হবে। চেক করতে PowerShell-এ: `node --version`
+- **Node.js 22.12 বা নতুন version** ইনস্টল থাকতে হবে। চেক করতে PowerShell-এ: `node --version`
   (না থাকলে https://nodejs.org থেকে LTS নামিয়ে ইনস্টল করো।)
-- **Microsoft Edge বা Google Chrome** — Windows-এ Edge আগে থেকেই থাকে, আলাদা কিছু লাগে না।
+- প্রথমবার install করার সময় internet লাগবে; installer Electron desktop runtime নামাবে। Edge/Chrome লাগে না।
 
 ---
 
@@ -28,9 +28,14 @@ setup হয়ে **lock** হয়ে যাবে। এরপর প্র�
 **অন্য PC-তে:** সেই PC-তে এই kit নিয়ে গিয়ে আবার একবার `Install.bat` চালাও — ব্যস।
 **Uninstall:** `Uninstall.bat` (right-click মেনু + PATH সরায়; locked ফোল্ডার আগে unlock করে নিও)।
 
+### Linux Mint
+
+Terminal-এ kit folder থেকে একবার `bash install.sh` চালাও। এরপর Nemo/Files-এ folder right-click →
+**Open with Locker**। অ্যাপটি browser-এ নয়, আলাদা Electron desktop window-এ খুলবে।
+
 ### বিকল্প: শুধু একটা ফোল্ডারে (install ছাড়া)
-Install করতে না চাইলে kit থেকে `locker-engine.js`, `app-server.js`, `launcher.ps1`, `Locker-App.bat` —
-এই ৪টা ফাইল প্রজেক্ট ফোল্ডারে কপি করে `Locker-App.bat`-এ double-click করলেও চলবে।
+Install করতে না চাইলে পুরো kit folder-এ একবার `npm install` এবং `node node_modules/electron/install.js`
+চালাও। এরপর Windows-এ `Locker-App.bat`, অথবা Linux-এ `./locker-app.sh` চালালেই হবে।
 
 ---
 
@@ -83,7 +88,8 @@ Secret হলো একটা JavaScript function। **এটা যা `return`
 |---|---|
 | `locker-engine.js` | আসল এনক্রিপশন (AES-256-GCM, scrypt key derivation) — cross-platform Node |
 | `app-server.js` | graphical অ্যাপ (mascot + digital UI); engine-কেই চালায়, নতুন crypto না |
-| `launcher.ps1` | server চালু করে + Edge/Chrome-এ app window খোলে, বন্ধ করলে server থামায় |
+| `desktop-main.js` | Windows/Linux-এ native Electron window ও app lifecycle চালায় |
+| `launcher.ps1` / `locker-app.sh` | desktop app চালু করে; window বন্ধ হলে auto-lock শেষ করে server থামায় |
 | `Locker-App.bat` | 👈 double-click করার ফাইল (terminal ছাড়া অ্যাপ খোলে) |
 | `locker.exe` | ঐচ্ছিক CLI front-end |
 

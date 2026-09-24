@@ -44,21 +44,26 @@ function ok(token, message) {
 
 function readSecretString(secretFilePath) {
   const text = fs.readFileSync(secretFilePath, "utf8");
-  // Wrapped in parens so a plain `function() {...}` literal evaluates to a callable, same as the
-  // caller would get from `(function() {...})`.
+  // "Whatever you type is your secret." Power users may pass a JS function literal, and its
+  // return value becomes the secret. But if the text is not a callable function (e.g. a plain
+  // password/phrase, or a function with a typo), the raw text itself is used as the secret.
+  // So there is no "syntax error" dead end -- any non-empty input works.
   let fn;
   try {
     // eslint-disable-next-line no-eval
     fn = eval("(" + text + ")");
   } catch (e) {
-    return null;
+    fn = undefined;
   }
-  if (typeof fn !== "function") return null;
-  try {
-    return String(fn());
-  } catch (e) {
-    return null;
+  if (typeof fn === "function") {
+    try {
+      return String(fn());
+    } catch (e) {
+      /* function threw at runtime -> fall back to the raw text below */
+    }
   }
+  const raw = text.trim();
+  return raw.length ? raw : null;
 }
 
 function configPath(folder) {
