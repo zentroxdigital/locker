@@ -312,7 +312,8 @@ function PAGE(token, self, appMode, nativeTts) {
   .title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
 
   .stage{display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:16px}
-  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto}
+  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto;
+    filter:drop-shadow(0 0 12px rgba(255,138,43,.68)) drop-shadow(0 0 28px rgba(239,111,22,.34))}
   /* gentle idle float */
   #body{transform-origin:60px 70px; animation:float 3.2s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
@@ -447,12 +448,9 @@ function PAGE(token, self, appMode, nativeTts) {
           <ellipse class="lid" cx="49" cy="44" rx="8.4" ry="10.4" fill="url(#face)"/>
           <ellipse class="lid" cx="71" cy="44" rx="8.4" ry="10.4" fill="url(#face)"/>
         </g>
-        <!-- warm blush for a softer, romantic expression -->
-        <ellipse cx="41" cy="58" rx="6" ry="2.7" fill="#e94f72" opacity=".38"/>
-        <ellipse cx="79" cy="58" rx="6" ry="2.7" fill="#e94f72" opacity=".38"/>
         <!-- nose + mouth -->
         <circle cx="60" cy="56" r="1.8" fill="#3a2a1a"/>
-        <path id="mouth" d="M50 65 Q60 74 70 65 Q60 70 50 65 Z" fill="#7a2537"/>
+        <path id="mouth" d="M50 65 Q60 74 70 65 Q60 70 50 65 Z" fill="#5a2410"/>
       </g>
     </svg>
   </div>
