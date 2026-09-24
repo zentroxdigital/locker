@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# locker - command-line front-end for the Locker engine on Linux.
+#   locker status <folder>
+#   locker setup|lock|unlock <folder> [secretfile.js]
+# If no secret file is given, paste your function and end with a line: ###END###
+set -euo pipefail
+
+DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+ENGINE="$DIR/locker-engine.js"
+
+MODE="${1:-}"; FOLDER="${2:-}"; SECRETFILE="${3:-}"
+
+if [ -z "$MODE" ] || [ -z "$FOLDER" ]; then
+  echo "usage: locker status|setup|lock|unlock <folder> [secretfile.js]"; exit 1
+fi
+
+if [ "$MODE" = "status" ]; then
+  exec node "$ENGINE" status "$FOLDER"
+fi
+
+OWN=""
+if [ -z "$SECRETFILE" ]; then
+  echo "Paste your unlock function. End with a line: ###END###"
+  SECRETFILE="$(mktemp --suffix=.js)"
+  OWN=1
+  while IFS= read -r line; do
+    [ "$line" = "###END###" ] && break
+    printf '%s\n' "$line" >> "$SECRETFILE"
+  done
+fi
+
+node "$ENGINE" "$MODE" "$FOLDER" "$SECRETFILE"; CODE=$?
+[ -n "$OWN" ] && rm -f "$SECRETFILE"
+exit $CODE

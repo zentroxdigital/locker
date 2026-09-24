@@ -1,0 +1,5 @@
+# Linux scripts must keep LF endings (CRLF breaks the shebang / interpreter)
+*.sh          text eol=lf
+*.desktop     text eol=lf
+*.nemo_action text eol=lf
+locker        text eol=lf
