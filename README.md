@@ -34,14 +34,16 @@ Terminal-এ kit folder থেকে একবার `bash install.sh` চাল
 **Open with Locker**। প্রথমবার key দিয়ে folder lock করলে সেটি watcher-এ register হবে। এরপর locked folder-এ
 ঢুকতে গেলেই Ms Minute নিজে খুলে key চাইবে। Window বন্ধ করলে folder আবার auto-lock হবে।
 
-Linux-এ Bengali female voice শোনার জন্য একবার চালাও:
+Ms Minute এখন 2× বড় এবং window background transparent—পেছনের desktop দেখা যাবে। Clear natural Bengali
+female voice প্রস্তুত করার জন্য install-এর আগে একবার চালাও:
 
 ```bash
-sudo apt install espeak-ng
+sudo apt install python3-venv espeak-ng
 ```
 
-Locker প্রথমে `espeak-ng`-এর Bengali female variant ব্যবহার করবে, তারপর `spd-say`, এবং সবশেষে browser
-speech voice চেষ্টা করবে।
+`bash install.sh` internet ব্যবহার করে Microsoft `bn-BD-NabanitaNeural` greeting download/cache করবে। এরপর
+boot-এর greeting offline cache থেকেই চলবে। Neural voice unavailable হলে `espeak-ng` female, `spd-say`, তারপর
+browser speech voice fallback হবে।
 
 Installer `~/.xinitrc`-এ একটি চিহ্নিত Locker block যোগ করে। তাই username/password দিয়ে login করে
 `startx` চালালে desktop session শুরু হওয়ার **আগে** full-screen Ms Minute খুলে বলবে:

@@ -24,6 +24,11 @@ const PORT = parseInt(process.argv[2] || "8787", 10);
 const TOKEN = process.argv[3] || crypto.randomBytes(8).toString("hex");
 const APPDIR = __dirname;                        // where the locker tool files live
 const ENGINE = path.join(APPDIR, "locker-engine.js");
+const VOICE_CACHE = path.join(APPDIR, "voice-cache");
+const EDGE_TTS = process.platform === "win32"
+  ? path.join(APPDIR, ".voice-venv", "Scripts", "edge-tts.exe")
+  : path.join(APPDIR, ".voice-venv", "bin", "edge-tts");
+const GREETING_BN = "হাই রায়াত স্যার, আপনি এসেছেন? আমার জন্য কী এনেছেন?";
 // The folder to lock/unlock: passed as arg (right-click "Open with Locker"), else this folder.
 const HERE = process.argv[4] ? path.resolve(process.argv[4]) : APPDIR;
 const APP_MODE = process.argv[5] === "guard" ? "guard" : "folder";
@@ -137,6 +142,59 @@ function speakNative(text, lang, cb) {
   attempt(0);
 }
 
+/** Generate/cache a clear Microsoft neural female voice. Linux installer provides edge-tts. */
+function neuralSpeech(text, lang, cb) {
+  if (process.platform !== "linux") return cb(null);
+  const cleanText = String(text || "").replace(/[\r\n]+/g, " ").trim().slice(0, 500);
+  if (!cleanText) return cb(null);
+  const isBangla = String(lang || "").toLowerCase().startsWith("bn");
+  const voice = isBangla ? "bn-BD-NabanitaNeural" : "en-US-AriaNeural";
+  const fileName = cleanText === GREETING_BN && isBangla
+    ? "greeting-bn.mp3"
+    : crypto.createHash("sha256").update(voice + "\n" + cleanText).digest("hex") + ".mp3";
+  const output = path.join(VOICE_CACHE, fileName);
+
+  try {
+    if (fs.existsSync(output) && fs.statSync(output).size > 0) return cb(fs.readFileSync(output));
+    if (!fs.existsSync(EDGE_TTS)) return cb(null);
+    fs.mkdirSync(VOICE_CACHE, { recursive: true });
+  } catch (_) {
+    return cb(null);
+  }
+
+  const temporary = output + ".tmp-" + process.pid;
+  const child = spawn(EDGE_TTS, ["--voice", voice, "--text", cleanText, "--write-media", temporary], {
+    windowsHide: true,
+    stdio: "ignore"
+  });
+  let finished = false;
+  const timer = setTimeout(() => {
+    if (!finished) child.kill();
+  }, 30000);
+  function done(audio) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(timer);
+    cb(audio);
+  }
+  child.once("error", () => done(null));
+  child.once("close", (code) => {
+    if (finished) return;
+    if (code !== 0) {
+      try { fs.unlinkSync(temporary); } catch (_) {}
+      return done(null);
+    }
+    try {
+      if (!fs.existsSync(output)) fs.renameSync(temporary, output);
+      else fs.unlinkSync(temporary);
+      done(fs.readFileSync(output));
+    } catch (_) {
+      try { fs.unlinkSync(temporary); } catch (_) {}
+      done(null);
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const u = new URL(req.url, "http://127.0.0.1");
   const p = u.pathname;
@@ -158,6 +216,20 @@ const server = http.createServer((req, res) => {
   if (p === "/api/speak" && req.method === "POST") {
     return readBody(req, (b) => {
       speakNative(b.text, b.lang, (spoken) => send(res, 200, { ok: spoken }));
+    });
+  }
+
+  if (p === "/api/neural-speak" && req.method === "POST") {
+    return readBody(req, (b) => {
+      neuralSpeech(b.text, b.lang, (audio) => {
+        if (!audio) return send(res, 503, { ok: false });
+        res.writeHead(200, {
+          "Content-Type": "audio/mpeg",
+          "Content-Length": audio.length,
+          "Cache-Control": "private, max-age=86400"
+        });
+        res.end(audio);
+      });
     });
   }
 
@@ -226,18 +298,18 @@ function PAGE(token, self, appMode, nativeTts) {
   *{box-sizing:border-box}
   html,body{margin:0;height:100%}
   body{
-    background:radial-gradient(1200px 600px at 50% -10%, #1b2230 0%, var(--bg) 60%);
+    background:transparent;
     color:var(--ink); font-family:"Segoe UI",system-ui,Arial,sans-serif;
     display:flex; align-items:flex-start; justify-content:center; padding:18px;
   }
   body.guard{align-items:center}
-  .app{width:100%; max-width:520px}
+  .app{width:100%; max-width:560px}
   .title{display:flex; align-items:center; gap:10px; margin:2px 2px 14px}
   .title b{font-size:20px; letter-spacing:.3px}
   .title .dot{width:10px;height:10px;border-radius:50%;background:var(--accent);box-shadow:0 0 12px var(--accent)}
 
   .stage{display:flex; flex-direction:column; align-items:center; gap:12px; margin-bottom:16px}
-  .mascot{width:172px;height:190px;flex:0 0 auto;filter:drop-shadow(0 12px 24px rgba(255,120,40,.32))}
+  .mascot{width:344px;height:380px;max-width:70vw;flex:0 0 auto;filter:drop-shadow(0 18px 34px rgba(255,120,40,.42))}
   /* gentle idle float */
   #body{transform-origin:60px 70px; animation:float 3.2s ease-in-out infinite}
   @keyframes float{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)}}
@@ -404,9 +476,12 @@ function say(html){ if(bubble) bubble.innerHTML = html; }
 function eating(on){ mascot.classList.toggle("eating", !!on); }
 function setOut(msg, kind){ out.textContent = msg||""; out.className = "out show" + (kind?(" "+kind):""); if(!msg) out.className="out"; }
 
-// ---- female voice: native Linux TTS first, browser speech synthesis as fallback ----
+// ---- female voice: cached neural audio, native Linux TTS, then browser fallback ----
 let voiceOn = true;
 let VOICES = [];
+let currentAudio = null;
+let currentAudioUrl = null;
+let speechSequence = 0;
 function loadVoices(){ try{ VOICES = window.speechSynthesis.getVoices() || []; }catch(e){ VOICES=[]; } }
 loadVoices();
 if(window.speechSynthesis) window.speechSynthesis.onvoiceschanged = loadVoices;
@@ -435,15 +510,46 @@ function browserSpeak(text, opts){
     window.speechSynthesis.speak(u);
   }catch(e){}
 }
+function stopClientAudio(){
+  if(currentAudio){ try{ currentAudio.pause(); currentAudio.currentTime=0; }catch(e){} currentAudio=null; }
+  if(currentAudioUrl){ try{ URL.revokeObjectURL(currentAudioUrl); }catch(e){} currentAudioUrl=null; }
+}
+async function playNeuralVoice(text, lang, sequence){
+  const res = await fetch("/api/neural-speak?t=" + T, {
+    method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({text:text,lang:lang})
+  });
+  if(!res.ok) throw new Error("neural voice unavailable");
+  const blob = await res.blob();
+  if(sequence!==speechSequence || !voiceOn || !blob.size) return false;
+  stopClientAudio();
+  currentAudioUrl = URL.createObjectURL(blob);
+  currentAudio = new Audio(currentAudioUrl);
+  currentAudio.volume = 1;
+  await currentAudio.play();
+  return new Promise((resolve,reject)=>{
+    currentAudio.onended=()=>{ stopClientAudio(); resolve(true); };
+    currentAudio.onerror=()=>{ stopClientAudio(); reject(new Error("audio playback failed")); };
+  });
+}
 function speak(text, opts){
   if(!voiceOn) return;
   opts = opts || {};
+  const sequence = ++speechSequence;
+  stopClientAudio();
+  if(window.speechSynthesis) window.speechSynthesis.cancel();
   if(NATIVE_TTS){
     mascot.classList.add("talking");
     const inferredLang = /[\u0980-\u09ff]/.test(text) ? "bn-BD" : "en-US";
-    api("/api/speak", {text:text, lang:opts.lang||inferredLang})
-      .then(r=>{ mascot.classList.remove("talking"); if(!r.ok) browserSpeak(text, opts); })
-      .catch(()=>{ mascot.classList.remove("talking"); browserSpeak(text, opts); });
+    const lang = opts.lang||inferredLang;
+    playNeuralVoice(text, lang, sequence)
+      .then(()=>{ if(sequence===speechSequence) mascot.classList.remove("talking"); })
+      .catch(()=>api("/api/speak", {text:text, lang:lang})
+        .then(r=>{
+          if(sequence!==speechSequence) return;
+          mascot.classList.remove("talking");
+          if(!r.ok) browserSpeak(text, opts);
+        })
+        .catch(()=>{ if(sequence===speechSequence){ mascot.classList.remove("talking"); browserSpeak(text, opts); } }));
     return;
   }
   browserSpeak(text, opts);
@@ -455,7 +561,7 @@ $("mute").onclick = (e)=>{
   e.stopPropagation();
   voiceOn = !voiceOn;
   $("mute").textContent = voiceOn ? "🔊" : "🔇";
-  if(!voiceOn && window.speechSynthesis) window.speechSynthesis.cancel();
+  if(!voiceOn){ speechSequence++; stopClientAudio(); if(window.speechSynthesis) window.speechSynthesis.cancel(); mascot.classList.remove("talking"); }
   else greet();
 };
 

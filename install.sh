@@ -40,6 +40,27 @@ npm install --omit=dev --no-audit --no-fund --prefix "$DEST"
 node "$DEST/node_modules/electron/install.js"
 [ -d "$DEST/node_modules/electron/dist" ] || { echo "Electron desktop runtime download hoyni."; exit 1; }
 
+echo "-> Preparing clear Bengali female voice"
+VOICE_ENV="$DEST/.voice-venv"
+VOICE_CACHE="$DEST/voice-cache"
+if python3 -m venv "$VOICE_ENV" >/dev/null 2>&1; then
+  if "$VOICE_ENV/bin/pip" install --disable-pip-version-check --no-cache-dir "edge-tts==7.2.8" >/dev/null; then
+    mkdir -p "$VOICE_CACHE"
+    if "$VOICE_ENV/bin/edge-tts" \
+      --voice "bn-BD-NabanitaNeural" \
+      --text "হাই রায়াত স্যার, আপনি এসেছেন? আমার জন্য কী এনেছেন?" \
+      --write-media "$VOICE_CACHE/greeting-bn.mp3"; then
+      echo "   Clear female greeting ready (Nabanita)."
+    else
+      echo "   WARNING: Neural greeting cache hoyni; internet check koro. Native voice fallback cholbe."
+    fi
+  else
+    echo "   WARNING: edge-tts install hoyni; native voice fallback cholbe."
+  fi
+else
+  echo "   WARNING: Clear voice-er jonno cholao: sudo apt install python3-venv; tarpor install.sh abar cholao."
+fi
+
 echo "-> Installing 'locker' CLI to ~/.local/bin"
 mkdir -p "$HOME/.local/bin"
 ln -sf "$DEST/locker" "$HOME/.local/bin/locker"
@@ -153,5 +174,6 @@ echo "Done! Ekhon:"
 echo "  * Nemo/Files e folder e right-click -> 'Open with Locker'"
 echo "  * Locked folder-e dhukle Ms Minute auto open hobe"
 echo "  * Porer startx/Cinnamon session-e login guard auto open hobe"
+echo "  * Ms Minute ekhon 2x boro, transparent, ebong clear female voice use korbe"
 echo "  * Terminal/code theke:  locker lock /path/to/folder"
 echo "  * Ekbar notun terminal khulo (PATH update-er jonno)."

@@ -135,18 +135,21 @@ async function shutdownAndQuit() {
 async function createWindow() {
   const target = targetFromArguments();
   await startServer(target);
-  const guardBounds = APP_MODE === "guard" ? screen.getPrimaryDisplay().bounds : {};
+  const display = screen.getPrimaryDisplay();
+  const guardBounds = APP_MODE === "guard" ? display.bounds : {};
 
   mainWindow = new BrowserWindow({
     x: APP_MODE === "guard" ? guardBounds.x : undefined,
     y: APP_MODE === "guard" ? guardBounds.y : undefined,
-    width: APP_MODE === "guard" ? guardBounds.width : 500,
-    height: APP_MODE === "guard" ? guardBounds.height : 700,
+    width: APP_MODE === "guard" ? guardBounds.width : Math.min(600, display.workArea.width),
+    height: APP_MODE === "guard" ? guardBounds.height : Math.min(900, display.workArea.height),
     minWidth: 430,
     minHeight: 600,
     show: false,
     autoHideMenuBar: true,
-    backgroundColor: "#0e1116",
+    backgroundColor: "#00000000",
+    transparent: true,
+    hasShadow: false,
     title: "Locker",
     frame: APP_MODE !== "guard",
     fullscreen: APP_MODE === "guard",
@@ -189,6 +192,7 @@ async function createWindow() {
 }
 
 app.setName("Locker Kit");
+app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.whenReady().then(createWindow).catch((error) => {
   dialog.showErrorBox("Locker could not start", error.message || String(error));
   if (serverProcess) serverProcess.kill();

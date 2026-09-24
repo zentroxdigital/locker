@@ -9,6 +9,8 @@ guard_secret_*.js
 
 # Node / build
 node_modules/
+.voice-venv/
+voice-cache/
 
 # OS junk
 Thumbs.db
